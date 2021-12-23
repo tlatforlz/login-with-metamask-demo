@@ -33,9 +33,15 @@ export const Profile = ({ auth, onLoggedOut }: Props): JSX.Element => {
 
 	useEffect(() => {
 		const { token } = auth;
-		const headers = { Authorization: `Bearer ${token}` };
-		axios.get(`${process.env.REACT_APP_BACKEND_URL}/getUserByToken`, { headers })
-		.then(res => {
+		const headers = { 
+			Authorization: `Bearer ${token}`
+		};
+		axios({
+			method: 'get',
+			url: `${process.env.REACT_APP_BACKEND_URL}/me`,
+			withCredentials: true,
+			headers: headers
+		}).then(res => {
 			console.log(res);
 			const data = res.data.data;
 			console.log(data);
@@ -44,7 +50,9 @@ export const Profile = ({ auth, onLoggedOut }: Props): JSX.Element => {
 				u: data.u,
 				username: data.userName
 			});
-		})
+		}).catch((err) => {
+			console.log(err);
+		});
 	}, []);
 
 	const handleChange = ({
@@ -96,13 +104,13 @@ export const Profile = ({ auth, onLoggedOut }: Props): JSX.Element => {
 			<div>
 				My publicAddress is <pre>{u}</pre>
 			</div>
-			{/* <div>
+			<div>
 				<label htmlFor="username">Change username: </label>
 				<input name="username" onChange={handleChange} />
 				<button disabled={loading} onClick={handleSubmit}>
 					Submit
 				</button>
-			</div> */}
+			</div>
 			<p>
 				<button onClick={onLoggedOut}>Logout</button>
 			</p>
