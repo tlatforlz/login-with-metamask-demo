@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Blockies from 'react-blockies';
 
 import { Auth } from '../types';
+import axios from 'axios';
 
 interface Props {
 	auth: Auth;
@@ -13,41 +14,37 @@ interface Props {
 
 interface State {
 	loading: boolean;
-	user?: {
-		id: number;
-		username: string;
-	};
+	u: string;
 	username: string;
 }
 
 interface JwtDecoded {
 	payload: {
 		id: string;
-		publicAddress: string;
 	};
 }
 
 export const Profile = ({ auth, onLoggedOut }: Props): JSX.Element => {
 	const [state, setState] = useState<State>({
 		loading: false,
-		user: undefined,
+		u: '',
 		username: '',
 	});
 
 	useEffect(() => {
-		const { accessToken } = auth;
-		const {
-			payload: { id },
-		} = jwtDecode<JwtDecoded>(accessToken);
-
-		fetch(`${process.env.REACT_APP_BACKEND_URL}/users/${id}`, {
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-			},
+		const { token } = auth;
+		const headers = { Authorization: `Bearer ${token}` };
+		axios.get(`${process.env.REACT_APP_BACKEND_URL}/getUserByToken`, { headers })
+		.then(res => {
+			console.log(res);
+			const data = res.data.data;
+			console.log(data);
+			setState({
+				loading: false,
+				u: data.u,
+				username: data.userName
+			});
 		})
-			.then((response) => response.json())
-			.then((user) => setState({ ...state, user }))
-			.catch(window.alert);
 	}, []);
 
 	const handleChange = ({
@@ -57,60 +54,55 @@ export const Profile = ({ auth, onLoggedOut }: Props): JSX.Element => {
 	};
 
 	const handleSubmit = () => {
-		const { accessToken } = auth;
-		const { user, username } = state;
+		const { token } = auth;
+		const { u, username } = state;
 
 		setState({ ...state, loading: true });
 
-		if (!user) {
+		if (!u) {
 			window.alert(
 				'The user id has not been fetched yet. Please try again in 5 seconds.'
 			);
 			return;
 		}
-
-		fetch(`${process.env.REACT_APP_BACKEND_URL}/users/${user.id}`, {
-			body: JSON.stringify({ username }),
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-				'Content-Type': 'application/json',
-			},
-			method: 'PATCH',
+		const headers = { Authorization: `Bearer ${token}`};
+		const body = { userName: username}
+		axios({
+			method: 'post',
+			url: `${process.env.REACT_APP_BACKEND_URL}/profile`,
+			headers: headers,
+			data: body
 		})
-			.then((response) => response.json())
-			.then((user) => setState({ ...state, loading: false, user }))
-			.catch((err) => {
-				window.alert(err);
-				setState({ ...state, loading: false });
+		.then(res => {
+			console.log(res);
+			const data = res.data.data;
+			console.log(data);
+			setState({
+				loading: false,
+				u: u,
+				username: username
 			});
+		})
 	};
 
-	const { accessToken } = auth;
-
-	const {
-		payload: { publicAddress },
-	} = jwtDecode<JwtDecoded>(accessToken);
-
-	const { loading, user } = state;
-
-	const username = user && user.username;
+	const { token } = auth;
+	const { loading, u, username } = state;
 
 	return (
 		<div className="Profile">
 			<p>
-				Logged in as <Blockies seed={publicAddress} />
+				Logged in as <Blockies seed={u} />
 			</p>
 			<div>
-				My username is {username ? <pre>{username}</pre> : 'not set.'}{' '}
-				My publicAddress is <pre>{publicAddress}</pre>
+				My publicAddress is <pre>{u}</pre>
 			</div>
-			<div>
+			{/* <div>
 				<label htmlFor="username">Change username: </label>
 				<input name="username" onChange={handleChange} />
 				<button disabled={loading} onClick={handleSubmit}>
 					Submit
 				</button>
-			</div>
+			</div> */}
 			<p>
 				<button onClick={onLoggedOut}>Logout</button>
 			</p>

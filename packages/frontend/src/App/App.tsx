@@ -23,7 +23,7 @@ export const App = (): JSX.Element => {
 		setState({ auth });
 	}, []);
 
-	const handleLoggedIn = (auth: Auth) => {
+	const handleLoggedIn = (auth: any) => {
 		localStorage.setItem(LS_KEY, JSON.stringify(auth));
 		setState({ auth });
 	};

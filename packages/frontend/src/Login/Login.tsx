@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Web3 from 'web3';
 
 import { Auth } from '../types';
+import axios from 'axios';
 
 interface Props {
 	onLoggedIn: (auth: Auth) => void;
@@ -21,13 +22,21 @@ export const Login = ({ onLoggedIn }: Props): JSX.Element => {
 		publicAddress: string;
 		signature: string;
 	}) =>
-		fetch(`${process.env.REACT_APP_BACKEND_URL}/auth`, {
-			body: JSON.stringify({ publicAddress, signature }),
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			method: 'POST',
-		}).then((response) => response.json());
+	{
+		const data = {
+			publicAddress,
+			signature
+		}
+		axios.post(`${process.env.REACT_APP_BACKEND_URL}/verify`, data)
+		.then(res => {
+			const data = res.data.data;
+			if (data != null) {
+				onLoggedIn({
+					...data
+				});
+			}
+		})
+	};
 
 	const handleSignMessage = async ({
 		publicAddress,
@@ -42,7 +51,6 @@ export const Login = ({ onLoggedIn }: Props): JSX.Element => {
 				publicAddress,
 				'' // MetaMask will ignore the password argument here
 			);
-
 			return { publicAddress, signature };
 		} catch (err) {
 			throw new Error(
@@ -51,14 +59,21 @@ export const Login = ({ onLoggedIn }: Props): JSX.Element => {
 		}
 	};
 
-	const handleSignup = (publicAddress: string) =>
-		fetch(`${process.env.REACT_APP_BACKEND_URL}/users`, {
-			body: JSON.stringify({ publicAddress }),
-			headers: {
-				'Content-Type': 'application/json',
-			},
-			method: 'POST',
-		}).then((response) => response.json());
+	const handleSignup = (publicAddress: string) => {
+		const data = {
+			publicAddress: publicAddress
+		};
+		return axios.post(`${process.env.REACT_APP_BACKEND_URL}/user`, data)
+		.then(res => {
+			const data = res.data.data;
+
+			console.log(data);
+			return {
+				publicAddress: data.u,
+				nonce: data.nonce
+			}
+		})
+	};
 
 	const handleClick = async () => {
 		// Check if MetaMask is installed
@@ -89,25 +104,27 @@ export const Login = ({ onLoggedIn }: Props): JSX.Element => {
 
 		const publicAddress = coinbase.toLowerCase();
 		setLoading(true);
-
-		// Look if user with current publicAddress is already present on backend
-		fetch(
-			`${process.env.REACT_APP_BACKEND_URL}/users?publicAddress=${publicAddress}`
-		)
-			.then((response) => response.json())
-			// If yes, retrieve it. If no, create it.
-			.then((users) =>
-				users.length ? users[0] : handleSignup(publicAddress)
-			)
-			// Popup MetaMask confirmation modal to sign message
-			.then(handleSignMessage)
-			// Send signature to backend on the /auth route
-			.then(handleAuthenticate)
-			// Pass accessToken back to parent component (to save it in localStorage)
-			.then(onLoggedIn)
-			.catch((err) => {
-				window.alert(err);
-				setLoading(false);
+		
+		axios
+			.get(`${process.env.REACT_APP_BACKEND_URL}/user?publicAddress=${publicAddress}`)
+			.then(res => {
+				console.log(res);
+				if (res != null && res.data != null && res.data.code == 200) {
+					const user = res.data.data;
+					handleSignMessage({
+						publicAddress: user.publicAddress,
+						nonce: user.nonce
+					})
+					.then(handleAuthenticate)
+				} else {
+					handleSignup(publicAddress).then(user => {
+						handleSignMessage({
+							publicAddress: user.publicAddress,
+							nonce: user.nonce
+						})
+						.then(handleAuthenticate);
+					});
+				}
 			});
 	};
 
@@ -121,12 +138,6 @@ export const Login = ({ onLoggedIn }: Props): JSX.Element => {
 			</p>
 			<button className="Login-button Login-mm" onClick={handleClick}>
 				{loading ? 'Loading...' : 'Login with MetaMask'}
-			</button>
-			<button className="Login-button Login-fb" disabled>
-				Login with Facebook
-			</button>
-			<button className="Login-button Login-email" disabled>
-				Login with Email
 			</button>
 		</div>
 	);
